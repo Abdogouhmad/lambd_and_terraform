@@ -94,6 +94,7 @@ resource "aws_lambda_function" "my_data_lambda" {
   role = aws_iam_role.data_vis_db_role.arn
 }
 
+# issue start here
 # Create an API Gateway REST API
 resource "aws_api_gateway_rest_api" "data_vis_api" {
   name        = "data_vis_myrestapi"
@@ -175,5 +176,5 @@ output "lambda_function_arn" {
 
 # Output the API Gateway invoke URL
 output "api_invoke_url" {
-  value = "${aws_api_gateway_deployment.api_deployment.invoke_url}/resource"
+  value = aws_api_gateway_deployment.api_deployment.invoke_url
 }
