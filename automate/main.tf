@@ -1,33 +1,3 @@
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 4.16"
-    }
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.6.2"
-    }
-    archive = {
-      source  = "hashicorp/archive"
-      version = "~> 2.2.0"
-    }
-  }
-  required_version = ">= 1.2.0"
-}
-
-# Define a variable for the home directory
-variable "HOME" {
-  type        = string
-  description = "the absolute path to your home directory"
-}
-
-# Configure the AWS provider with credentials and region
-provider "aws" {
-  region                   = "us-east-1"
-  shared_credentials_files = ["${var.HOME}/.aws/credentials"]
-}
-
 # Generate a random ID for unique bucket naming
 resource "random_id" "bucket_id" {
   byte_length = 6
@@ -67,7 +37,7 @@ resource "aws_iam_policy_attachment" "lambda_policy" {
 # Zip the lambda
 data "archive_file" "zipped_lambda" {
   type        = "zip"
-  source_file = "${path.module}/main_lambda.py"
+  source_file = "${path.module}/../main_lambda.py"
   output_path = "${path.module}/function.zip"
 }
 
@@ -169,12 +139,3 @@ resource "aws_api_gateway_deployment" "api_deployment" {
   stage_name = "dev"
 }
 
-# Output the Lambda function ARN
-output "lambda_function_arn" {
-  value = aws_lambda_function.my_data_lambda.arn
-}
-
-# Output the API Gateway invoke URL
-output "api_invoke_url" {
-  value = "${aws_api_gateway_deployment.api_deployment.invoke_url}/data"
-}
