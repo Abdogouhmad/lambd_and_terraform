@@ -96,4 +96,5 @@ if __name__ == "__main__":
         print()
         print(the_json)
     else:
-        print(the_table)  # Print or return the JSON error message
+        print(the_table)
+    # Print or return the JSON error message
