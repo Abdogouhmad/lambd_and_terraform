@@ -40,3 +40,5 @@ terraform.rc
 .env
 .terraform.lock.hcl
 function.zip
+__pycache__/*
+__pycache__
