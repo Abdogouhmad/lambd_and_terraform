@@ -17,62 +17,6 @@ app.add_middleware(
 )
 
 
-# Filter the data using pandas and return JSON response
-def filter_data_pandas(data: Union[dict, str]) -> str | None:
-    """
-    Filters user data using pandas and returns a JSON response.
-
-    Args:
-        data (Union[dict, str]): The user data to filter, expected to be a dictionary.
-
-    Returns:
-        str: Returns a JSON-formatted string representing the filtered data or an error message.
-    """
-    if isinstance(data, dict) and "posts" in data:
-        posts = data["posts"]
-        if posts:
-            df = pd.DataFrame(posts)
-            filtered_dt = df.filter(items=["reactions", "views"])
-            return filtered_dt.to_json(
-                orient="index", indent=4
-            )  # Convert DataFrame to JSON string
-        else:
-            return json.dumps({"message": "No posts found in the data"}, indent=4)
-    else:
-        return json.dumps(data, indent=4)  # Return error message as JSON
-
-
-# function combines them both
-def filter_into_column(data: Union[dict, str]):
-    """
-    Filter the data and return it in table form.
-
-    Args:
-        data (Union[dict, str]): The user data to filter, expected to be a dictionary.
-
-    Returns:
-        pd.DataFrame or str: Returns a DataFrame containing filtered data or an error message.
-    """
-    if isinstance(data, dict) and "posts" in data:
-        posts = data["posts"]
-        if posts:
-            # Extracting only relevant fields for each post
-            filtered_data = [
-                {
-                    "Likes": post["reactions"]["likes"],
-                    "Dislikes": post["reactions"]["dislikes"],
-                    "Views": post["views"],
-                }
-                for post in posts
-            ]
-            df = pd.DataFrame(filtered_data)
-            return df
-        else:
-            return json.dumps({"message": "No data found"})
-    else:
-        return None  # Handle invalid data gracefully
-
-
 # Fetch the data and return JSON response or error message
 def get_user(url: str) -> Union[dict, str]:
     """
@@ -96,7 +40,7 @@ def get_user(url: str) -> Union[dict, str]:
 
 
 # function that get reatcions only
-def get_reaction(data: Union[dict, str]):
+def get_reaction(data: Union[dict, str]) -> Union[dict, None]:
     if isinstance(data, dict) and "posts" in data:
         posts = data["posts"]
         if posts:
@@ -117,11 +61,36 @@ def get_reaction(data: Union[dict, str]):
 
 
 # function that get views only
+def get_views(data: Union[dict, str]) -> Union[dict, None]:
+    if isinstance(data, dict) and "posts" in data:
+        posts = data["posts"]
+        if posts:
+            # Extracting only relevant fields for each post
+            filtered_data = [{"Views": post["views"]} for post in posts]
+            df = pd.DataFrame(filtered_data).to_dict(orient="list")
+            return df
+        else:
+            return {"message": "No data found"}
+    else:
+        return None
 
 
 # create POST api for reactions
-@app.get("/{id}")
-def get_postdata(id):
-    URL = f"https://dummyjson.com/posts/user/{id}"
-    data = get_user(URL)
-    return get_reaction(data)
+@app.get("/reactions/{id}")
+def get_reactiondata(id):
+    if id is not None:
+        URL = f"https://dummyjson.com/posts/user/{id}"
+        data = get_user(URL)
+        return get_reaction(data)
+    else:
+        return {"message": "No id provided"}
+
+
+@app.get("/views/{id}")
+def get_viewsdata(id):
+    if id is not None:
+        URL = f"https://dummyjson.com/posts/user/{id}"
+        data = get_user(URL)
+        return get_views(data)
+    else:
+        return {"message": "No id provided"}
