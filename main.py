@@ -1,96 +1,104 @@
 import json
+import boto3
 import requests as req
 import pandas as pd
+from decimal import Decimal
 from typing import Union
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
 
-# CORS configuration to allow requests from localhost:3000
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Update with your frontend URL
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Lambda handler function
+def lambda_handler(event, context):
+    try:
+        if event.get("httpMethod") == "GET":
+            user_id = event.get("pathParameters", {}).get("id")
+            if user_id:
+                return handle_data(user_id)
+            else:
+                return build_response(400, "Bad request: Missing user id", cors=True)
+        else:
+            return build_response(
+                400, "Bad request: Only GET method is supported", cors=True
+            )
+    except Exception as e:
+        print(f"Error processing request: {e}")
+        return build_response(500, f"Internal server error: {e}", cors=True)
+
+
+# Function to handle the data
+def handle_data(user_id: str):
+    bucket_name = "userdata"
+    object_key = f"{user_id}_posts_data.json"
+    s3 = boto3.client("s3")
+    url = f"https://dummyjson.com/posts/user/{user_id}"
+
+    data = fetch_data(url)
+    if isinstance(data, dict) and "posts" in data:
+        filtered_data = data_posts(data)
+
+        # Write the data to a file
+        with open("/tmp/" + object_key, "w") as file:
+            json.dump(filtered_data, file)
+
+        # Upload file to S3
+        s3.upload_file("/tmp/" + object_key, bucket_name, object_key)
+
+        # Fetch the uploaded file from S3
+        resp = s3.get_object(Bucket=bucket_name, Key=object_key)
+        processed_data = resp["Body"].read().decode("utf-8")
+        return build_response(200, json.loads(processed_data), cors=True)
+    else:
+        return build_response(404, "No data found or error fetching data", cors=True)
 
 
 # Fetch the data and return JSON response or error message
-def get_user(url: str) -> Union[dict, str]:
-    """
-    Fetches user data from the specified URL.
-
-    Args:
-        url (str): The URL to fetch user data from.
-
-    Returns:
-        Union[dict, str]: Returns a dictionary containing user data if successful,
-                          or a JSON string error message if there's an exception.
-    """
+def fetch_data(url: str) -> Union[dict, str]:
     try:
         response = req.get(url)
         response.raise_for_status()
-        data = response.json()
-        return data
+        return response.json()
     except req.exceptions.RequestException as e:
-        error_message = {"message": f"Error fetching data: {e}"}
-        return json.dumps(error_message, indent=4)
+        return {"message": f"Error fetching data: {e}"}
 
 
-# function that get reatcions only
-def get_reaction(data: Union[dict, str]) -> Union[dict, None]:
-    if isinstance(data, dict) and "posts" in data:
-        posts = data["posts"]
-        if posts:
-            # Extracting only relevant fields for each post
-            filtered_data = [
-                {
-                    "Likes": post["reactions"]["likes"],
-                    "Dislikes": post["reactions"]["dislikes"],
-                }
-                for post in posts
-            ]
-            df = pd.DataFrame(filtered_data).to_dict(orient="list")
-            return df
-        else:
-            return {"message": "No data found"}
-    else:
-        return None  # Handle invalid data gracefully
+# Function to process posts data
+def data_posts(data: dict) -> dict:
+    posts = data.get("posts", [])
+    filtered_data = [
+        {
+            "Likes": post["reactions"].get("likes", 0),
+            "Dislikes": post["reactions"].get("dislikes", 0),
+            "Views": post.get("views", 0),
+        }
+        for post in posts
+    ]
+    return pd.DataFrame(filtered_data).to_dict(orient="list")
 
 
-# function that get views only
-def get_views(data: Union[dict, str]) -> Union[dict, None]:
-    if isinstance(data, dict) and "posts" in data:
-        posts = data["posts"]
-        if posts:
-            # Extracting only relevant fields for each post
-            filtered_data = [{"Views": post["views"]} for post in posts]
-            df = pd.DataFrame(filtered_data).to_dict(orient="list")
-            return df
-        else:
-            return {"message": "No data found"}
-    else:
-        return None
+# Custom JSON encoder for Decimal type
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            if obj % 1 == 0:
+                return int(obj)
+            else:
+                return float(obj)
+        return super(DecimalEncoder, self).default(obj)
 
 
-# create POST api for reactions
-@app.get("/reactions/{id}")
-def get_reactiondata(id):
-    if id is not None:
-        URL = f"https://dummyjson.com/posts/user/{id}"
-        data = get_user(URL)
-        return get_reaction(data)
-    else:
-        return {"message": "No id provided"}
+# Build the response
+def build_response(status_code, body, cors=False):
+    headers = {"Content-Type": "application/json"}
+    if cors:
+        headers.update(
+            {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET",
+            }
+        )
 
-
-@app.get("/views/{id}")
-def get_viewsdata(id):
-    if id is not None:
-        URL = f"https://dummyjson.com/posts/user/{id}"
-        data = get_user(URL)
-        return get_views(data)
-    else:
-        return {"message": "No id provided"}
+    return {
+        "statusCode": status_code,
+        "headers": headers,
+        "body": json.dumps(body, cls=DecimalEncoder),
+    }
