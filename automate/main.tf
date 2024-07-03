@@ -5,7 +5,7 @@ resource "random_id" "bucket_id" {
 
 # Create an S3 bucket with a unique name
 resource "aws_s3_bucket" "data_log" {
-  bucket = "data-log-${random_id.bucket_id.hex}"
+  bucket = "userdata24"
 }
 
 # Create an IAM role for the Lambda function
@@ -37,7 +37,7 @@ resource "aws_iam_policy_attachment" "lambda_policy" {
 # Zip the lambda
 data "archive_file" "zipped_lambda" {
   type        = "zip"
-  source_file = "${path.module}/../main_lambda.py"
+  source_file = "${path.module}/../main.py"
   output_path = "${path.module}/function.zip"
 }
 
@@ -136,6 +136,6 @@ resource "aws_api_gateway_deployment" "api_deployment" {
   depends_on  = [aws_api_gateway_integration.integration_api]
   rest_api_id = aws_api_gateway_rest_api.data_vis_api.id
 
-  stage_name = "dev"
+  stage_name = "prod"
 }
 
