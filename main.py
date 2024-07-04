@@ -16,7 +16,11 @@ def lambda_handler(event, context):
         # Store post data with reactions and views in a list
         post_data_list = []
         for post in user_data["posts"]:
-            post_data = {"reactions": post["reactions"], "views": post["views"]}
+            post_data = {
+                "Likes": post["reactions"]["likes"],
+                "DisLikes": post["reactions"]["dislikes"],
+                "views": post["views"],
+            }
             post_data_list.append(post_data)
 
         # Store processed data in S3

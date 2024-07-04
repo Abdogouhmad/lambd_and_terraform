@@ -27,11 +27,49 @@ resource "aws_iam_role" "data_vis_db_role" {
   })
 }
 
+# Define the IAM policy for accessing the S3 bucket
+resource "aws_iam_policy" "s3_access_policy" {
+  name        = "S3FullAccessToUserData24"
+  description = "Full access to userdata24 bucket"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Effect = "Allow",
+        Action = [
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:ListBucket"
+        ],
+        Resource = [
+          "arn:aws:s3:::userdata24",
+          "arn:aws:s3:::userdata24/*"
+        ]
+      }
+    ]
+  })
+}
+
 # Attach the AWSLambdaBasicExecutionRole policy to the IAM role
 resource "aws_iam_policy_attachment" "lambda_policy" {
   name       = "AWSLambdaBasicExecutionRole"
   roles      = [aws_iam_role.data_vis_db_role.name]
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# Attach the S3 access policy to the IAM role
+resource "aws_iam_policy_attachment" "s3_access_policy_attachment" {
+  name       = "S3FullAccessToUserData24Attachment"
+  roles      = [aws_iam_role.data_vis_db_role.name]
+  policy_arn = aws_iam_policy.s3_access_policy.arn
+}
+
+# Attach the AmazonS3FullAccess policy to the IAM role
+resource "aws_iam_policy_attachment" "s3_full_access" {
+  name       = "AmazonS3FullAccess"
+  roles      = [aws_iam_role.data_vis_db_role.name]
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
 # Zip the lambda
@@ -57,14 +95,13 @@ resource "aws_lambda_function" "my_data_lambda" {
   s3_key        = aws_s3_object.zipped_lambda.key
 
   runtime = "python3.9"
-  handler = "main_lambda.lambda_handler"
+  handler = "main.lambda_handler"
 
   source_code_hash = data.archive_file.zipped_lambda.output_base64sha256
 
   role = aws_iam_role.data_vis_db_role.arn
 }
 
-# issue start here
 # Create an API Gateway REST API
 resource "aws_api_gateway_rest_api" "data_vis_api" {
   name        = "data_vis_myrestapi"
@@ -138,4 +175,3 @@ resource "aws_api_gateway_deployment" "api_deployment" {
 
   stage_name = "prod"
 }
-
