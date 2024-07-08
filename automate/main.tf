@@ -37,7 +37,7 @@ resource "aws_iam_policy_attachment" "lambda_policy" {
 # Zip the lambda
 data "archive_file" "zipped_lambda" {
   type        = "zip"
-  source_file = "${path.module}/../main_lambda.py"
+  source_file = "${path.module}/../main.py"
   output_path = "${path.module}/function.zip"
 }
 
