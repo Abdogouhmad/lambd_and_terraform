@@ -31,11 +31,24 @@ def lambda_handler(event, context):
             ContentType="application/json",
         )
 
-        # Return processed data in the response body
-        return {"statusCode": 200, "body": json.dumps(post_data_list)}
+        # Return processed data in the response body with CORS headers
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+            "body": json.dumps(post_data_list),
+        }
 
     except Exception as e:
         return {
             "statusCode": 500,
+            "headers": {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
             "body": json.dumps({"message": "Error processing data", "error": str(e)}),
         }
